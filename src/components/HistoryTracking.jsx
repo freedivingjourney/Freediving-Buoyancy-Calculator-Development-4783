@@ -1,12 +1,113 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import SafeIcon from '../common/SafeIcon';
 import * as FiIcons from 'react-icons/fi';
+import { useAuth } from './Auth/AuthProvider';
+import supabase from '../lib/supabase';
 
-const { FiClock, FiTrendingUp, FiTarget, FiDroplet, FiWind, FiMale, FiFemale } = FiIcons;
+const { FiClock, FiTrendingUp, FiTarget, FiDroplet, FiWind, FiMale, FiFemale, FiSave, FiCloud, FiAlertCircle } = FiIcons;
 
-const HistoryTracking = ({ history }) => {
+const HistoryTracking = ({ history, onHistoryLoaded }) => {
+  const { user } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+  const [syncMessage, setSyncMessage] = useState({ type: '', text: '' });
+
+  // Load history from Supabase when user logs in
+  useEffect(() => {
+    const loadHistory = async () => {
+      if (user) {
+        setIsLoading(true);
+        try {
+          const { data, error } = await supabase
+            .from('calculation_history_fd12345678')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(10);
+            
+          if (error) throw error;
+          
+          if (data && data.length > 0 && onHistoryLoaded) {
+            // Convert from DB format to app format
+            const formattedHistory = data.map(item => ({
+              id: item.id,
+              date: item.created_at,
+              inputs: item.inputs,
+              results: item.results
+            }));
+            onHistoryLoaded(formattedHistory);
+          }
+        } catch (error) {
+          console.error('Error loading history:', error);
+          setSyncMessage({
+            type: 'error',
+            text: 'Failed to load your calculation history'
+          });
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    };
+    
+    loadHistory();
+  }, [user, onHistoryLoaded]);
+
+  // Save history to Supabase
+  const syncHistory = async () => {
+    if (!user || history.length === 0) return;
+    
+    setIsLoading(true);
+    setSyncMessage({ type: '', text: '' });
+    
+    try {
+      // Get existing history IDs to avoid duplicates
+      const { data: existingData } = await supabase
+        .from('calculation_history_fd12345678')
+        .select('id')
+        .eq('user_id', user.id);
+        
+      const existingIds = new Set(existingData?.map(item => item.id) || []);
+      
+      // Filter out records that already exist in the database
+      const newRecords = history
+        .filter(item => !item.dbId && !existingIds.has(item.id))
+        .map(item => ({
+          id: item.id,
+          user_id: user.id,
+          inputs: item.inputs,
+          results: item.results,
+          created_at: item.date
+        }));
+      
+      if (newRecords.length > 0) {
+        const { error } = await supabase
+          .from('calculation_history_fd12345678')
+          .insert(newRecords);
+          
+        if (error) throw error;
+        
+        setSyncMessage({
+          type: 'success',
+          text: `Successfully saved ${newRecords.length} calculations to your account`
+        });
+      } else {
+        setSyncMessage({
+          type: 'info',
+          text: 'Your calculations are already synced'
+        });
+      }
+    } catch (error) {
+      console.error('Error saving history:', error);
+      setSyncMessage({
+        type: 'error',
+        text: 'Failed to save calculations to your account'
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const getBuoyancyColor = (status) => {
     switch (status) {
       case 'positive': return 'text-red-600 bg-red-50';
@@ -29,7 +130,6 @@ const HistoryTracking = ({ history }) => {
     const { weightBeltUnit, neckWeightUnit } = entry.inputs;
     const beltValue = entry.inputs.weightBelt;
     const neckValue = entry.inputs.neckWeight;
-    
     return `${beltValue}${weightBeltUnit} + ${neckValue}${neckWeightUnit}`;
   };
 
@@ -51,8 +151,18 @@ const HistoryTracking = ({ history }) => {
           {trend && (
             <div className="flex items-center text-sm">
               <SafeIcon icon={FiTrendingUp} className="mr-1" />
-              <span className={`font-medium ${trend.trend === 'increasing' ? 'text-red-600' : trend.trend === 'decreasing' ? 'text-blue-600' : 'text-green-600'}`}>
-                {trend.trend === 'stable' ? 'Stable' : `${trend.trend === 'increasing' ? '+' : '-'}${trend.value.toFixed(1)}kg`}
+              <span
+                className={`font-medium ${
+                  trend.trend === 'increasing'
+                    ? 'text-red-600'
+                    : trend.trend === 'decreasing'
+                    ? 'text-blue-600'
+                    : 'text-green-600'
+                }`}
+              >
+                {trend.trend === 'stable'
+                  ? 'Stable'
+                  : `${trend.trend === 'increasing' ? '+' : '-'}${trend.value.toFixed(1)}kg`}
               </span>
             </div>
           )}
@@ -68,6 +178,62 @@ const HistoryTracking = ({ history }) => {
           <div className="text-center text-gray-600">
             <div className="text-2xl font-bold text-blue-600">{history.length}</div>
             <div className="text-sm">Saved calculations</div>
+          </div>
+        )}
+
+        {/* Cloud sync button (only show when user is logged in) */}
+        {user && history.length > 0 && (
+          <div className="mt-4">
+            <button
+              onClick={syncHistory}
+              disabled={isLoading}
+              className={`w-full flex items-center justify-center px-4 py-2 rounded-lg text-white ${
+                isLoading ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'
+              } transition-colors`}
+            >
+              {isLoading ? (
+                <>
+                  <span className="animate-spin mr-2">⏳</span>
+                  Syncing...
+                </>
+              ) : (
+                <>
+                  <SafeIcon icon={FiCloud} className="mr-2" />
+                  Sync to Cloud
+                </>
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* Sync message */}
+        {syncMessage.text && (
+          <div
+            className={`mt-3 p-3 rounded-lg text-sm ${
+              syncMessage.type === 'error'
+                ? 'bg-red-50 text-red-700'
+                : syncMessage.type === 'success'
+                ? 'bg-green-50 text-green-700'
+                : 'bg-blue-50 text-blue-700'
+            }`}
+          >
+            <div className="flex items-center">
+              <SafeIcon
+                icon={syncMessage.type === 'error' ? FiAlertCircle : FiCloud}
+                className="mr-2"
+              />
+              {syncMessage.text}
+            </div>
+          </div>
+        )}
+
+        {/* Login prompt if not logged in */}
+        {!user && history.length > 0 && (
+          <div className="mt-3 p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
+            <div className="flex items-center">
+              <SafeIcon icon={FiCloud} className="mr-2" />
+              <span>Login to save your calculations to the cloud</span>
+            </div>
           </div>
         )}
       </div>
@@ -89,15 +255,21 @@ const HistoryTracking = ({ history }) => {
                   <div className="text-sm text-gray-600">
                     {format(new Date(entry.date), 'MMM dd, yyyy HH:mm')}
                   </div>
-                  <div className={`px-2 py-1 rounded text-xs font-medium ${getBuoyancyColor(entry.results.surfaceBuoyancy)}`}>
+                  <div
+                    className={`px-2 py-1 rounded text-xs font-medium ${getBuoyancyColor(
+                      entry.results.surfaceBuoyancy
+                    )}`}
+                  >
                     {entry.results.surfaceBuoyancy}
                   </div>
                 </div>
 
                 <div className="flex items-center mb-3">
-                  <SafeIcon 
-                    icon={entry.inputs.gender === 'male' ? FiMale : FiFemale} 
-                    className={`mr-2 ${entry.inputs.gender === 'male' ? 'text-blue-500' : 'text-pink-500'}`} 
+                  <SafeIcon
+                    icon={entry.inputs.gender === 'male' ? FiMale : FiFemale}
+                    className={`mr-2 ${
+                      entry.inputs.gender === 'male' ? 'text-blue-500' : 'text-pink-500'
+                    }`}
                   />
                   <span className="text-sm capitalize">{entry.inputs.gender}</span>
                   <span className="mx-1 text-gray-400">•</span>
@@ -115,9 +287,7 @@ const HistoryTracking = ({ history }) => {
                   </div>
                   <div>
                     <div className="font-medium text-gray-900">Weights</div>
-                    <div className="text-gray-600">
-                      {formatWeight(entry)}
-                    </div>
+                    <div className="text-gray-600">{formatWeight(entry)}</div>
                   </div>
                   <div>
                     <div className="font-medium text-gray-900">Water</div>
@@ -162,7 +332,11 @@ const HistoryTracking = ({ history }) => {
             <div className="bg-blue-50 rounded-lg p-3">
               <div className="font-medium text-blue-900">Avg. Weight</div>
               <div className="text-xl font-bold text-blue-800">
-                {(history.reduce((sum, entry) => sum + entry.results.recommendedWeight, 0) / history.length).toFixed(1)}kg
+                {(
+                  history.reduce((sum, entry) => sum + entry.results.recommendedWeight, 0) /
+                  history.length
+                ).toFixed(1)}
+                kg
               </div>
             </div>
             <div className="bg-green-50 rounded-lg p-3">
@@ -172,7 +346,6 @@ const HistoryTracking = ({ history }) => {
               </div>
             </div>
           </div>
-
           {/* Natural Neutral Depth Reference */}
           <div className="mt-4 p-3 bg-gray-50 rounded-lg">
             <h5 className="font-medium text-gray-700 mb-2">Reference Points</h5>
