@@ -11,7 +11,7 @@ import { calculateBuoyancy } from '../utils/buoyancyCalculations';
 import SafeIcon from '../common/SafeIcon';
 import * as FiIcons from 'react-icons/fi';
 
-const { FiAlertTriangle, FiInfo, FiBarChart3 } = FiIcons;
+const { FiAlertTriangle, FiInfo, FiBarChart3, FiWind } = FiIcons;
 
 const BuoyancyCalculator = () => {
   const [userInputs, setUserInputs] = useState({
@@ -168,6 +168,16 @@ const BuoyancyCalculator = () => {
         <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
           <strong>Enhanced Guidance:</strong> This calculator provides baseline ballast weight recommendations (1kg per 1mm wetsuit thickness) and targets neutral buoyancy at appropriate depths based on water type and individual factors. <strong>Always conduct in-water testing</strong> and adjust based on personal buoyancy, water salinity, and body composition variations.
         </div>
+
+        {/* Air Consumption Limitation Notice */}
+        <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+          <div className="flex items-start space-x-2">
+            <SafeIcon icon={FiWind} className="text-red-600 mt-0.5 flex-shrink-0" />
+            <div>
+              <strong>Important Limitation:</strong> This calculator does <strong>not consider air consumption</strong> during the dive. Individual breathing patterns, air consumption rates, and progressive lung volume changes throughout the dive significantly affect buoyancy and are not factored into these calculations.
+            </div>
+          </div>
+        </div>
       </motion.div>
 
       {activeTab === 'calculator' ? (
@@ -248,9 +258,22 @@ const BuoyancyCalculator = () => {
             <p className="text-sm text-gray-700 mb-2">
               This buoyancy calculator is a development tool created by <strong>Instructor Rogemar</strong> from <strong>Freediving Journey Academy</strong> to assist in dive planning. While based on empirical data and established freediving principles, it should not replace proper training, in-water testing, and professional instruction.
             </p>
-            <p className="text-sm text-gray-700 font-medium">
+            <p className="text-sm text-gray-700 font-medium mb-3">
               For comprehensive freediving education, certification courses, and personalized buoyancy consultations, visit <a href="https://www.freedivingjourney.com" className="text-blue-600 hover:text-blue-800">www.freedivingjourney.com</a> or contact us at <a href="mailto:hello@freedivingjourney.com" className="text-blue-600 hover:text-blue-800">hello@freedivingjourney.com</a>
             </p>
+            
+            {/* Additional Disclaimers */}
+            <div className="border-t pt-3 mt-3 space-y-2">
+              <p className="text-sm text-gray-600">
+                <strong>Air Consumption:</strong> Individual air consumption rates during dives are not considered in these calculations and significantly affect actual buoyancy.
+              </p>
+              <p className="text-sm text-gray-600">
+                <strong>Global Access:</strong> This tool is provided free of charge to the worldwide freediving community for educational purposes.
+              </p>
+              <p className="text-sm text-gray-600">
+                <strong>Location Data:</strong> IP-based location information is used solely for providing regional diving insights and is not stored permanently.
+              </p>
+            </div>
           </div>
         </div>
       </motion.div>

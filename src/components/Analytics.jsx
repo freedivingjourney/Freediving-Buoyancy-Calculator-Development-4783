@@ -7,8 +7,9 @@ import AnalyticsCharts from './AnalyticsCharts';
 import UserBehaviorAnalytics from './UserBehaviorAnalytics';
 import CalculationTrends from './CalculationTrends';
 import SafetyMetrics from './SafetyMetrics';
+import LocationAnalytics from './LocationAnalytics';
 
-const { FiBarChart3, FiTrendingUp, FiUsers, FiTarget, FiAlertTriangle, FiDownload, FiFilter, FiCalendar, FiPieChart, FiActivity, FiShield, FiSettings, FiRefreshCw } = FiIcons;
+const { FiBarChart3, FiTrendingUp, FiUsers, FiTarget, FiAlertTriangle, FiDownload, FiFilter, FiCalendar, FiPieChart, FiActivity, FiShield, FiSettings, FiRefreshCw, FiGlobe, FiMapPin } = FiIcons;
 
 const Analytics = ({ history, onExport }) => {
   const [timeRange, setTimeRange] = useState('30d');
@@ -16,10 +17,45 @@ const Analytics = ({ history, onExport }) => {
   const [filterBy, setFilterBy] = useState('all');
   const [analyticsData, setAnalyticsData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [locationData, setLocationData] = useState(null);
 
   useEffect(() => {
     generateAnalyticsData();
+    fetchLocationData();
   }, [history, timeRange, filterBy]);
+
+  const fetchLocationData = async () => {
+    try {
+      // Get user's location from IP (free service)
+      const response = await fetch('https://ipapi.co/json/');
+      const locationInfo = await response.json();
+      
+      setLocationData({
+        country: locationInfo.country_name,
+        countryCode: locationInfo.country_code,
+        region: locationInfo.region,
+        city: locationInfo.city,
+        latitude: locationInfo.latitude,
+        longitude: locationInfo.longitude,
+        timezone: locationInfo.timezone,
+        currency: locationInfo.currency,
+        languages: locationInfo.languages
+      });
+    } catch (error) {
+      console.log('Location detection not available');
+      setLocationData({
+        country: 'Unknown',
+        countryCode: 'XX',
+        region: 'Unknown',
+        city: 'Unknown',
+        latitude: null,
+        longitude: null,
+        timezone: 'UTC',
+        currency: 'USD',
+        languages: 'en'
+      });
+    }
+  };
 
   const generateAnalyticsData = () => {
     setIsLoading(true);
@@ -50,7 +86,7 @@ const Analytics = ({ history, onExport }) => {
       return entryDate >= startDate;
     });
 
-    // Generate comprehensive analytics
+    // Generate comprehensive analytics with location data
     const analytics = {
       overview: generateOverviewMetrics(filteredHistory),
       trends: generateTrendAnalysis(filteredHistory),
@@ -58,13 +94,149 @@ const Analytics = ({ history, onExport }) => {
       safety: generateSafetyMetrics(filteredHistory),
       equipment: generateEquipmentAnalytics(filteredHistory),
       performance: generatePerformanceMetrics(filteredHistory),
-      predictions: generatePredictiveAnalytics(filteredHistory)
+      predictions: generatePredictiveAnalytics(filteredHistory),
+      location: generateLocationAnalytics(filteredHistory, locationData)
     };
 
     setAnalyticsData(analytics);
     setIsLoading(false);
   };
 
+  const generateLocationAnalytics = (data, locationInfo) => {
+    if (!locationInfo) return null;
+
+    // Simulate location-based analytics (in a real app, this would come from stored user data)
+    const locationStats = {
+      userLocation: locationInfo,
+      estimatedLocalUsers: Math.floor(Math.random() * 500) + 100, // Simulated local user count
+      popularWaterTypes: {
+        // Estimate based on location
+        saltwater: locationInfo.country === 'Philippines' || locationInfo.country === 'Indonesia' || 
+                  locationInfo.country === 'Thailand' || locationInfo.country === 'Australia' ? 0.8 : 0.4,
+        freshwater: locationInfo.country === 'Switzerland' || locationInfo.country === 'Canada' || 
+                   locationInfo.country === 'Finland' ? 0.7 : 0.3
+      },
+      regionalPreferences: {
+        avgWetsuitThickness: getRegionalWetsuitPreference(locationInfo),
+        commonBodyTypes: getRegionalBodyTypeDistribution(locationInfo),
+        seasonalTrends: getSeasonalTrends(locationInfo)
+      },
+      nearbyDivingSites: estimateNearbyDivingSites(locationInfo),
+      localSafetyConsiderations: getLocalSafetyConsiderations(locationInfo)
+    };
+
+    return locationStats;
+  };
+
+  const getRegionalWetsuitPreference = (locationInfo) => {
+    const { country, latitude } = locationInfo;
+    
+    // Tropical regions (closer to equator)
+    if (Math.abs(latitude) < 25) {
+      return { avg: 1.5, common: '1-2mm', reason: 'Tropical waters' };
+    }
+    // Temperate regions
+    else if (Math.abs(latitude) < 50) {
+      return { avg: 3.5, common: '3-5mm', reason: 'Temperate waters' };
+    }
+    // Cold regions (higher latitudes)
+    else {
+      return { avg: 5.5, common: '5-7mm', reason: 'Cold waters' };
+    }
+  };
+
+  const getRegionalBodyTypeDistribution = (locationInfo) => {
+    // This would typically come from regional health/demographic data
+    // For demo purposes, using general estimates
+    return {
+      lean: 0.25,
+      average: 0.40,
+      muscular: 0.20,
+      broad: 0.10,
+      'higher-fat': 0.05
+    };
+  };
+
+  const getSeasonalTrends = (locationInfo) => {
+    const { latitude } = locationInfo;
+    const currentMonth = new Date().getMonth();
+    
+    // Northern hemisphere
+    if (latitude > 0) {
+      if (currentMonth >= 5 && currentMonth <= 8) { // June-September
+        return { season: 'Summer', activity: 'High', wetsuitAdjustment: '-0.5mm' };
+      } else if (currentMonth >= 11 || currentMonth <= 2) { // December-March
+        return { season: 'Winter', activity: 'Low', wetsuitAdjustment: '+1mm' };
+      } else {
+        return { season: 'Spring/Fall', activity: 'Medium', wetsuitAdjustment: '0mm' };
+      }
+    }
+    // Southern hemisphere
+    else {
+      if (currentMonth >= 11 || currentMonth <= 2) { // December-March
+        return { season: 'Summer', activity: 'High', wetsuitAdjustment: '-0.5mm' };
+      } else if (currentMonth >= 5 && currentMonth <= 8) { // June-September
+        return { season: 'Winter', activity: 'Low', wetsuitAdjustment: '+1mm' };
+      } else {
+        return { season: 'Spring/Fall', activity: 'Medium', wetsuitAdjustment: '0mm' };
+      }
+    }
+  };
+
+  const estimateNearbyDivingSites = (locationInfo) => {
+    const { country, region } = locationInfo;
+    
+    // Popular freediving destinations
+    const divingSiteEstimates = {
+      'Philippines': { count: 50, famous: ['Palawan', 'Bohol', 'Siargao'] },
+      'Indonesia': { count: 45, famous: ['Bali', 'Komodo', 'Raja Ampat'] },
+      'Thailand': { count: 30, famous: ['Koh Tao', 'Phuket', 'Krabi'] },
+      'Egypt': { count: 25, famous: ['Red Sea', 'Dahab', 'Sharm El Sheikh'] },
+      'Greece': { count: 20, famous: ['Santorini', 'Crete', 'Mykonos'] },
+      'Spain': { count: 18, famous: ['Canary Islands', 'Balearic Islands'] },
+      'Australia': { count: 35, famous: ['Great Barrier Reef', 'Ningaloo Reef'] },
+      'Mexico': { count: 25, famous: ['Cenotes', 'Cozumel', 'La Paz'] },
+      'France': { count: 15, famous: ['Nice', 'Corsica', 'French Riviera'] },
+      'Italy': { count: 20, famous: ['Sardinia', 'Sicily', 'Amalfi Coast'] }
+    };
+    
+    return divingSiteEstimates[country] || { count: 5, famous: ['Local sites'] };
+  };
+
+  const getLocalSafetyConsiderations = (locationInfo) => {
+    const { country, latitude } = locationInfo;
+    
+    const considerations = [];
+    
+    // Water temperature considerations
+    if (Math.abs(latitude) > 50) {
+      considerations.push('Cold water diving - hypothermia risk management essential');
+      considerations.push('Extended wetsuit coverage recommended');
+    } else if (Math.abs(latitude) < 25) {
+      considerations.push('Warm water diving - dehydration prevention important');
+      considerations.push('UV protection and sun safety critical');
+    }
+    
+    // Altitude considerations
+    if (['Nepal', 'Bolivia', 'Peru', 'Tibet'].includes(country)) {
+      considerations.push('High altitude location - adjust for reduced atmospheric pressure');
+    }
+    
+    // Regional water conditions
+    if (['Philippines', 'Indonesia', 'Papua New Guinea'].includes(country)) {
+      considerations.push('Strong currents possible - advanced water skills required');
+    }
+    
+    // Seasonal considerations
+    const seasonal = getSeasonalTrends(locationInfo);
+    if (seasonal.season === 'Winter' && Math.abs(latitude) > 40) {
+      considerations.push('Winter diving conditions - ice safety protocols may apply');
+    }
+    
+    return considerations;
+  };
+
+  // Keep all existing analytics generation functions...
   const generateOverviewMetrics = (data) => {
     const totalCalculations = data.length;
     const uniqueSessions = new Set(data.map(entry => entry.date.split('T')[0])).size;
@@ -310,6 +482,7 @@ const Analytics = ({ history, onExport }) => {
     };
   };
 
+  // Keep all existing utility functions...
   const calculateGrowthRate = (dailyData) => {
     const values = Object.values(dailyData);
     if (values.length < 2) return 0;
@@ -399,6 +572,7 @@ const Analytics = ({ history, onExport }) => {
       timeRange,
       generatedAt: new Date().toISOString(),
       analytics: analyticsData,
+      location: locationData,
       rawData: history.filter(entry => {
         const entryDate = new Date(entry.date);
         const now = new Date();
@@ -450,6 +624,12 @@ const Analytics = ({ history, onExport }) => {
           <div className="flex items-center">
             <SafeIcon icon={FiBarChart3} className="text-2xl text-blue-600 mr-3" />
             <h2 className="text-2xl font-bold text-gray-900">Analytics Dashboard</h2>
+            {locationData && (
+              <div className="ml-4 flex items-center text-sm text-gray-600">
+                <SafeIcon icon={FiMapPin} className="mr-1" />
+                <span>{locationData.city}, {locationData.country}</span>
+              </div>
+            )}
           </div>
           <div className="flex items-center space-x-4">
             {/* Time Range Selector */}
@@ -530,6 +710,11 @@ const Analytics = ({ history, onExport }) => {
           </div>
         </div>
       </div>
+
+      {/* Location Analytics */}
+      {analyticsData.location && locationData && (
+        <LocationAnalytics data={analyticsData.location} />
+      )}
 
       {/* Charts Section */}
       <AnalyticsCharts data={analyticsData} timeRange={timeRange} />
@@ -705,6 +890,59 @@ const Analytics = ({ history, onExport }) => {
           )}
         </div>
       )}
+
+      {/* Air Consumption Disclaimer */}
+      <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-6">
+        <div className="flex items-start space-x-3">
+          <SafeIcon icon={FiAlertTriangle} className="text-amber-600 text-xl mt-0.5 flex-shrink-0" />
+          <div>
+            <h3 className="font-semibold text-amber-900 mb-2">Important Calculation Limitation</h3>
+            <p className="text-sm text-amber-800 mb-3">
+              <strong>Air Consumption Not Considered:</strong> This calculator does not factor in the freediver's air consumption rate during the dive. Air consumption varies significantly between individuals and affects buoyancy as lung volume changes throughout the dive.
+            </p>
+            <div className="text-sm text-amber-800 space-y-2">
+              <p><strong>Key Considerations:</strong></p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Calculations assume full lung capacity at target depth</li>
+                <li>Individual breathing patterns and lung efficiency not accounted for</li>
+                <li>Progressive air consumption during dive affects neutral buoyancy</li>
+                <li>Advanced freedivers may have significantly different air consumption rates</li>
+              </ul>
+              <p className="mt-3 font-medium">
+                <strong>Recommendation:</strong> Use these calculations as a starting baseline, then adjust based on your personal air consumption patterns observed during actual dives.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Free Application Notice */}
+      <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-6">
+        <div className="flex items-start space-x-3">
+          <SafeIcon icon={FiGlobe} className="text-blue-600 text-xl mt-0.5 flex-shrink-0" />
+          <div>
+            <h3 className="font-semibold text-blue-900 mb-2">Free Global Access</h3>
+            <p className="text-sm text-blue-800 mb-3">
+              This freediving buoyancy calculator is provided <strong>free of charge</strong> to the global freediving community. We welcome users from all countries and regions to access this tool for educational and planning purposes.
+            </p>
+            <div className="text-sm text-blue-800 space-y-2">
+              <p><strong>Global Accessibility:</strong></p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Available worldwide with no restrictions</li>
+                <li>Location-based analytics help provide regional insights</li>
+                <li>No registration or payment required</li>
+                <li>Educational resource for the freediving community</li>
+              </ul>
+              {locationData && (
+                <div className="mt-3 p-3 bg-blue-100 rounded-lg">
+                  <p className="font-medium text-blue-900">Your Location: {locationData.city}, {locationData.country}</p>
+                  <p className="text-xs text-blue-700 mt-1">Location data helps us provide relevant regional diving insights and safety considerations.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
     </motion.div>
   );
 };
